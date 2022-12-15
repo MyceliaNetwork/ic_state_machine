@@ -1,11 +1,11 @@
 use std::collections::VecDeque;
-use std::sync::mpsc::{channel, Receiver, Sender, SendError};
+use crate::message_channel::{create_channel, MessageReceiver, MessageSender};
 use crate::state::{BoxedState, DeliveryStatus, State, StateType, Transition};
 
 pub type StateMachineId = String;
 
 pub struct StateMachineHandle<IncomingMessages : Clone> {
-    tx: Sender<IncomingMessages>,
+    tx: MessageSender<IncomingMessages>,
 }
 
 impl <IncomingMessages : Clone> StateMachineHandle<IncomingMessages> {
@@ -17,16 +17,18 @@ impl <IncomingMessages : Clone> StateMachineHandle<IncomingMessages> {
 }
 
 impl<IncomingMessages : Clone> StateMachineHandle<IncomingMessages> {
-    pub fn send(&self, message: IncomingMessages) -> Result<(), SendError<IncomingMessages>> {
-        self.tx.send(message)
+    pub fn send(&self, message: IncomingMessages) -> Result<(), ()> {
+        self.tx.try_send(message)
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub enum StepResult {
     Running,
     Terminated,
 }
 
+#[derive(Debug, PartialEq)]
 pub struct StateMachineError {
     message : String,
 }
@@ -38,9 +40,9 @@ pub struct StateMachine<Types: StateType> {
     is_state_initialized: bool,
 
     // Receives messages for states
-    inbound_message_channel: Receiver<Types::In>,
+    inbound_message_channel: MessageReceiver<Types::In>,
     // Sends messages from states
-    outbound_message_channel: Sender<Types::Out>,
+    outbound_message_channel: MessageSender<Types::Out>,
 }
 
 impl<Types> StateMachine<Types>
@@ -48,8 +50,8 @@ impl<Types> StateMachine<Types>
 {
     /// Create a new state machine with the given initial state.
     /// Return a StateMachine and StateMachineHandle that can be used to send messages to the state machine.
-    pub fn new(state_machine_id: String, outbound_message_channel: Sender<Types::Out>, state: Box<dyn State<Types>>) -> (StateMachine<Types>, StateMachineHandle<Types::In>) {
-        let (tx, inbound_message_channel) = channel::<Types::In>();
+    pub fn new(state_machine_id: String, outbound_message_channel: MessageSender<Types::Out>, state: Box<dyn State<Types>>) -> (StateMachine<Types>, StateMachineHandle<Types::In>) {
+        let (tx, inbound_message_channel) = create_channel::<Types::In>();
 
         (
             StateMachine {
@@ -83,16 +85,35 @@ impl<Types> StateMachine<Types>
         // If the current state is not initialized do that first
         if !self.is_state_initialized {
             let messages = self.state.initialize();
-            messages.into_iter().for_each(|message| self.outbound_message_channel.send(message).unwrap());
+            messages.into_iter().for_each(|message| self.outbound_message_channel.try_send(message).unwrap());
 
             self.is_state_initialized = true;
         }
 
         // Drain message channel
         loop {
-            match self.inbound_message_channel.try_recv() {
-                Ok(message) => self.message_queue.push_back(message),
-                Err(_) => break,
+            match self.inbound_message_channel.try_receive() {
+
+                Ok(Some(message)) => {
+                    self.message_queue.push_back(message);
+                },
+                _ => break
+            }
+        }
+
+        while let Some(message) = self.message_queue.pop_front() {
+            match self.state.deliver(message) {
+                DeliveryStatus::Delivered => {}
+                DeliveryStatus::Unexpected(message) => {
+                    println!("Unexpected message: {:?}", message);
+                    return Err(StateMachineError {
+                        message: format!("Unexpected message: {:?}", message),
+                    })
+                }
+                DeliveryStatus::Error(error) => {
+                    print!("Error: {}", error);
+                    return Err(StateMachineError{ message: error })
+                }
             }
         }
 
@@ -101,23 +122,7 @@ impl<Types> StateMachine<Types>
 
         return match advanced {
             Transition::Same => {
-                while let Some(message) = self.message_queue.pop_front() {
-                    match self.state.deliver(message) {
-                        DeliveryStatus::Delivered => {
-                            return Ok(StepResult::Running)
-                        }
-                        DeliveryStatus::Unexpected(message) => {
-                            return Err(StateMachineError {
-                                message: format!("Unexpected message: {:?}", message),
-                            })
-                        }
-                        DeliveryStatus::Error(error) => {
-                            return Err(StateMachineError{ message: error })
-                        }
-                    }
-                }
                 Ok(StepResult::Running)
-
             }
             Transition::Next(state) => {
                 self.state = state;

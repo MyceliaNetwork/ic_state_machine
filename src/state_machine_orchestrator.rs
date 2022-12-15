@@ -1,5 +1,5 @@
 use std::collections::{HashMap, VecDeque};
-use std::sync::mpsc::{channel, Receiver};
+use crate::message_channel::{create_channel, MessageReceiver};
 
 use crate::state::{State, StateMachineMessage, StateType};
 use crate::state_machine::{StateMachine, StateMachineHandle, StateMachineId};
@@ -11,7 +11,7 @@ pub trait StateMachineOrchestrator<Types: StateType> {
 
 pub struct SimpleMachineOrchestrator<Types: StateType> {
     next_id: u64,
-    machines: HashMap<String, (StateMachine<Types>, StateMachineHandle<Types::In>, Receiver<Types::Out>)>,
+    machines: HashMap<String, (StateMachine<Types>, StateMachineHandle<Types::In>, MessageReceiver<Types::Out>)>,
     commands : VecDeque<Types::Out>,
 }
 
@@ -28,7 +28,7 @@ impl<Types: StateType> SimpleMachineOrchestrator<Types> {
 impl<Types: StateType> StateMachineOrchestrator<Types> for SimpleMachineOrchestrator<Types> {
     fn create_machine(&mut self, state: Box<dyn State<Types>>) -> (StateMachineId, StateMachineHandle<Types::In>) {
         let machine_id = self.next_id.to_string();
-        let (tx, rx) = channel::<Types::Out>();
+        let (tx, rx) = create_channel::<Types::Out>();
 
         let (machine, inbound_channel) = StateMachine::new(
             machine_id.clone(),
@@ -49,7 +49,7 @@ impl<Types: StateType> StateMachineOrchestrator<Types> for SimpleMachineOrchestr
             Some((machine, handle, rx)) => {
                 handle.send(message).unwrap();
                 machine.step();
-                while let Ok(command) = rx.try_recv() {
+                while let Ok(Some(command)) = rx.try_receive() {
                     self.commands.push_back(command);
                 }
             }

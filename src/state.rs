@@ -5,14 +5,14 @@ use downcast_rs::{Downcast, impl_downcast};
 pub type BoxedState<Types> = Box<dyn State<Types>>;
 
 pub trait StateType: 'static {
-    type In: StateMachineMessage<Self::In>;
-    type Out: StateMachineMessage<Self::Out>;
+    type In: StateMachineMessage;
+    type Out: StateMachineMessage;
 }
 
 #[derive(Debug, Clone)]
 pub struct NoMessage(String);
 
-impl StateMachineMessage<NoMessage> for NoMessage {
+impl StateMachineMessage for NoMessage {
     fn id(&self) -> &String {
         &self.0
     }
@@ -22,9 +22,9 @@ impl StateMachineMessage<NoMessage> for NoMessage {
     }
 }
 
-pub trait StateMachineMessage<T>: Debug + Send + Clone {
+pub trait StateMachineMessage: Debug + Send + Clone {
     fn id(&self) -> &String;
-    fn unpack(self) -> T;
+    fn unpack(self) -> Self;
 }
 
 // Result from an attempt to deliver a message to a state.

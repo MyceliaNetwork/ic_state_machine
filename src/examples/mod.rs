@@ -1,1 +1,2 @@
 mod example_1_simple;
+mod example_2_simple_inbound_messages;

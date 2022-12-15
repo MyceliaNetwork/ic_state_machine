@@ -37,14 +37,13 @@ impl State<MachineTypes> for Blue {
 
 #[cfg(test)]
 mod test {
-    use std::sync::mpsc::channel;
-
     use crate::examples::example_1_simple::{Blue, Red};
+    use crate::message_channel::create_channel;
     use crate::state_machine::StateMachine;
 
     #[test]
     pub fn test() {
-        let (sender, _) = channel();
+        let (sender, _) = create_channel();
         let (mut machine, _) = StateMachine::new("simple".to_string(), sender, Box::new(Red::new()));
 
         assert_eq!(machine.downcast_state::<Red>(), Some(&Red {}));
