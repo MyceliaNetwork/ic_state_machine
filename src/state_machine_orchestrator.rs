@@ -1,26 +1,29 @@
 use std::collections::{HashMap, VecDeque};
-use crate::message_channel::{create_channel, MessageReceiver};
 
+use crate::message_channel::{create_channel, MessageReceiver};
 use crate::state::{State, StateMachineMessage, StateType};
 use crate::state_machine::{StateMachine, StateMachineHandle, StateMachineId};
 
 pub trait StateMachineOrchestrator<Types: StateType> {
     fn create_machine(&mut self, state: Box<dyn State<Types>>) -> (StateMachineId, StateMachineHandle<Types::In>);
     fn handle_message(&mut self, message: Types::In) -> ();
+    fn step_machine(&mut self, machine_id: &String) -> ();
 }
 
 pub struct SimpleMachineOrchestrator<Types: StateType> {
     next_id: u64,
     machines: HashMap<String, (StateMachine<Types>, StateMachineHandle<Types::In>, MessageReceiver<Types::Out>)>,
-    commands : VecDeque<Types::Out>,
+    commands: VecDeque<Types::Out>,
+    command_handler: Box<dyn Fn(Types::Out) -> ()>,
 }
 
 impl<Types: StateType> SimpleMachineOrchestrator<Types> {
-    pub fn new() -> SimpleMachineOrchestrator<Types> {
+    pub fn new(command_handler : Box<dyn Fn(Types::Out) -> ()>) -> SimpleMachineOrchestrator<Types> {
         SimpleMachineOrchestrator {
             next_id: 0,
             machines: HashMap::new(),
-            commands: Default::default()
+            commands: Default::default(),
+            command_handler
         }
     }
 }
@@ -54,9 +57,34 @@ impl<Types: StateType> StateMachineOrchestrator<Types> for SimpleMachineOrchestr
                 }
             }
         }
+
+        while let Some(v) = self.commands.pop_front() {
+            (self.command_handler)(v);
+        }
+    }
+
+    fn step_machine(&mut self, machine_id: &String) -> () {
+        match self.machines.get_mut(machine_id) {
+            None => {}
+            Some((state_machine, _, rx)) => {
+                state_machine.step();
+                while let Ok(Some(command)) = rx.try_receive() {
+                    self.commands.push_back(command);
+                }
+            }
+        }
+
+        while let Some(v) = self.commands.pop_front() {
+            (self.command_handler)(v);
+        }
     }
 }
 
 impl<Types: StateType> SimpleMachineOrchestrator<Types> {
-
+    pub fn get_state_machine(&self, id: &StateMachineId) -> Option<&StateMachine<Types>> {
+        match self.machines.get(id) {
+            None => None,
+            Some((machine, _, _)) => Some(machine)
+        }
+    }
 }
