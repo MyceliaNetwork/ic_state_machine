@@ -37,7 +37,7 @@ impl State<MachineTypes> for Blue {
 
 #[cfg(test)]
 mod test {
-    use crate::examples::example_1_simple::{Blue, Red};
+    use crate::tests::example_1_simple::{Blue, Red};
     use crate::message_channel::create_channel;
     use crate::state_machine::StateMachine;
 

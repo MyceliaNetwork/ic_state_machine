@@ -1,4 +1,4 @@
-mod examples;
+mod tests;
 pub mod state_machine;
 pub mod state;
 pub mod state_machine_orchestrator;

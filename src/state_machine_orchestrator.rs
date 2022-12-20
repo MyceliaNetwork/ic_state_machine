@@ -18,12 +18,12 @@ pub struct SimpleMachineOrchestrator<Types: StateType> {
 }
 
 impl<Types: StateType> SimpleMachineOrchestrator<Types> {
-    pub fn new(command_handler : Box<dyn Fn(Types::Out) -> ()>) -> SimpleMachineOrchestrator<Types> {
+    pub fn new(command_handler: Box<dyn Fn(Types::Out) -> ()>) -> SimpleMachineOrchestrator<Types> {
         SimpleMachineOrchestrator {
             next_id: 0,
             machines: HashMap::new(),
             commands: Default::default(),
-            command_handler
+            command_handler,
         }
     }
 }
@@ -85,6 +85,22 @@ impl<Types: StateType> SimpleMachineOrchestrator<Types> {
         match self.machines.get(id) {
             None => None,
             Some((machine, _, _)) => Some(machine)
+        }
+    }
+
+    /// Step all state machines in the orchestrator. After, processes outbound commands
+    pub fn step_all_machines(&mut self) -> () {
+
+        self.machines.values_mut().for_each(|(machine, _, rx)| {
+            machine.step();
+            while let Ok(Some(command)) = rx.try_receive() {
+                self.commands.push_back(command);
+            }
+        });
+
+
+        while let Some(v) = self.commands.pop_front() {
+            (self.command_handler)(v);
         }
     }
 }

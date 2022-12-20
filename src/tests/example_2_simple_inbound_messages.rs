@@ -92,7 +92,7 @@ impl State<MachineTypes> for BlueMessageState {
 
 #[cfg(test)]
 mod test {
-    use crate::examples::example_2_simple_inbound_messages::{BlueMessageState, RedMessageState, SimpleMessage};
+    use crate::tests::example_2_simple_inbound_messages::{BlueMessageState, RedMessageState, SimpleMessage};
     use crate::message_channel::create_channel;
     use crate::state_machine::StateMachine;
     use crate::state_machine::StepResult::Terminated;
