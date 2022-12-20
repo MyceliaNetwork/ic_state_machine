@@ -3,6 +3,7 @@ mod test {
     use std::cell::RefCell;
     use std::char::ToUppercase;
     use std::rc::Rc;
+
     use crate::state::{DeliveryStatus, NoMessage, State, StateMachineMessage, StateType, Transition};
     use crate::state::DeliveryStatus::Delivered;
     use crate::state::Transition::{Same, Terminal};
@@ -14,16 +15,13 @@ mod test {
     }
 
     #[derive(Debug, PartialEq)]
-    pub struct CommandStageOne {
-    }
+    pub struct CommandStageOne {}
 
     #[derive(Debug, PartialEq)]
-    pub struct CommandStageTwo {
-    }
+    pub struct CommandStageTwo {}
 
     #[derive(Debug, PartialEq)]
-    pub struct CommandStageThree {
-    }
+    pub struct CommandStageThree {}
 
     #[derive(Clone, Debug, PartialEq)]
     pub struct Message {
@@ -32,9 +30,9 @@ mod test {
 
     #[derive(Clone, Debug, PartialEq)]
     pub enum Commands {
-        StartFoo {id : String},
-        StartBar {id : String},
-        StartBaz {id : String}
+        StartFoo { id: String },
+        StartBar { id: String },
+        StartBaz { id: String },
     }
 
     impl StateMachineMessage for Commands {
@@ -62,6 +60,7 @@ mod test {
     }
 
     pub struct Types {}
+
     pub struct TypesWithCommands {}
 
     impl StateType for Types {
@@ -96,7 +95,6 @@ mod test {
 
         fn advance(&self) -> Result<Transition<TypesWithCommands>, String> {
             Ok(Transition::Next(Box::new(CommandStageTwo {})))
-
         }
     }
 
@@ -155,11 +153,10 @@ mod test {
 
     #[test]
     pub fn it_routes_passes_commands() {
-
         let mut commands = Rc::new(RefCell::new(vec![]));
 
         let mut handler_commands = commands.clone();
-        let handler = move |v : Commands| {
+        let handler = move |v: Commands| {
             handler_commands.borrow_mut().push(v);
         };
 
@@ -186,6 +183,5 @@ mod test {
 
         assert_eq!(commands.borrow_mut().len(), 1);
         assert_eq!(commands.borrow_mut().pop(), Some(Commands::StartBaz { id: "".to_string() }));
-
     }
 }
