@@ -90,7 +90,6 @@ impl<Types: StateType> SimpleMachineOrchestrator<Types> {
 
     /// Step all state machines in the orchestrator. After, processes outbound commands
     pub fn step_all_machines(&mut self) -> () {
-
         self.machines.values_mut().for_each(|(machine, _, rx)| {
             machine.step();
             while let Ok(Some(command)) = rx.try_receive() {

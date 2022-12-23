@@ -7,3 +7,5 @@ edition = "2021"
 
 [dependencies]
 downcast-rs = { version = "1.2.0", default-features = false }
+ic-cdk = "0.6.8"
+candid = "0.8.4"
